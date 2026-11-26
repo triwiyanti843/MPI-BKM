@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MPI Analisis Asesmen Interaktif - Kurikulum Merdeka SMA</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <!-- SheetJS (xlsx) via CDN untuk Upload & Export Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- html2pdf.js via CDN untuk Export PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#1e1b4b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Print & PDF Paper Formatting */
+    .a4-paper {
+      background: #ffffff;
+      width: 100%;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 16mm 15mm;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      color: #000000;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printable-report, #printable-report * {
+        visibility: visible;
+      }
+      #printable-report {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+    }
+
+    .tab-btn.active {
+      background-color: #4f46e5;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.25s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Toast Notification Container (Pengganti alert) -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Modal Panduan MPI & Tambah/Edit Siswa -->
+  <div id="modal-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden items-center justify-center p-4">
+    <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 animate-fade-in max-h-[90vh] overflow-y-auto">
+      <!-- Konten modal diisi secara dinamis -->
+    </div>
+  </div>
+
+  <!-- Top Navbar -->
+  <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <!-- Brand Logo & Title -->
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center shadow-md shrink-0">
+            <i class="fa-solid fa-chart-pie text-xl text-white"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-bold tracking-tight">MPI Analisis Asesmen Interaktif</h1>
+              <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                Kurikulum Merdeka SMA
+              </span>
+            </div>
+            <p class="text-xs text-slate-300" id="header-school-subtitle">SMAN 1 Pagar Dewa • Sistem Evaluasi & Pelaporan Terpadu</p>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="openGuideModal()" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-medium text-white flex items-center gap-1.5 transition border border-white/10">
+            <i class="fa-solid fa-circle-question text-emerald-400"></i>
+            <span>Panduan MPI</span>
+          </button>
+          <button onclick="saveToArchive()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center gap-1.5 shadow transition">
+            <i class="fa-solid fa-box-archive"></i>
+            <span>Simpan ke Arsip</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Global Quick Filter Bar (Kelas & Jenis Asesmen) -->
+      <div class="mt-3 pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+        <div class="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+          <span class="text-slate-300 font-medium whitespace-nowrap"><i class="fa-solid fa-layer-group text-indigo-400 mr-1"></i>Jenjang:</span>
+          <div class="flex gap-1 w-full">
+            <button onclick="switchClassLevel('X')" id="btn-kelas-X" class="kelas-pill flex-1 py-1 rounded-lg font-bold transition bg-indigo-600 text-white">Kelas X</button>
+            <button onclick="switchClassLevel('XI')" id="btn-kelas-XI" class="kelas-pill flex-1 py-1 rounded-lg font-bold transition text-slate-300 hover:bg-white/10">Kelas XI</button>
+            <button onclick="switchClassLevel('XII')" id="btn-kelas-XII" class="kelas-pill flex-1 py-1 rounded-lg font-bold transition text-slate-300 hover:bg-white/10">Kelas XII</button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 sm:col-span-1 lg:col-span-2">
+          <span class="text-slate-300 font-medium whitespace-nowrap"><i class="fa-solid fa-clipboard-check text-emerald-400 mr-1"></i>Asesmen:</span>
+          <select id="global-assessment-select" onchange="switchAssessmentType(this.value)" class="w-full bg-slate-800 text-white font-semibold rounded-lg px-2.5 py-1 border border-slate-700 focus:outline-none focus:border-indigo-400">
+            <option value="Asesmen Awal">Asesmen Awal (Diagnostik)</option>
+            <option value="Asesmen Harian">Asesmen Harian (Formatif)</option>
+            <option value="Asesmen Tengah Semester">Asesmen Tengah Semester (ATS)</option>
+            <option value="Asesmen Sumatif">Asesmen Sumatif (Lingkup Materi)</option>
+            <option value="Asesmen Akhir">Asesmen Akhir (SAS / SAT)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+          <span class="text-slate-300"><i class="fa-solid fa-book-open text-amber-400 mr-1"></i>Mapel:</span>
+          <span id="badge-active-subject" class="font-bold text-amber-300 truncate max-w-[150px]">Informatika</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    
+    <!-- Navigation Tabs -->
+    <nav class="flex overflow-x-auto gap-2 pb-2 mb-6 no-scrollbar">
+      <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 bg-white text-slate-600 border border-slate-200 transition">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Dashboard & Grafik</span>
+      </button>
+      <button onclick="switchTab('identitas')" id="tab-identitas" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 bg-white text-slate-600 border border-slate-200 transition">
+        <i class="fa-solid fa-id-card"></i>
+        <span>Identitas & Tanda Tangan</span>
+      </button>
+      <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 bg-white text-slate-600 border border-slate-200 transition">
+        <i class="fa-solid fa-file-arrow-up"></i>
+        <span>Upload Massal & Data Siswa</span>
+      </button>
+      <button onclick="switchTab('analisis')" id="tab-analisis" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 bg-white text-slate-600 border border-slate-200 transition">
+        <i class="fa-solid fa-microscope"></i>
+        <span>Analisis Otomatis & Butir Soal</span>
+      </button>
+      <button onclick="switchTab('laporan')" id="tab-laporan" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 bg-white text-slate-600 border border-slate-200 transition">
+        <i class="fa-solid fa-file-pdf"></i>
+        <span>Laporan, Excel & PDF</span>
+      </button>
+      <button onclick="switchTab('arsip')" id="tab-arsip" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 bg-white text-slate-600 border border-slate-200 transition">
+        <i class="fa-solid fa-folder-open"></i>
+        <span>Arsip Asesmen</span>
+        <span id="archive-count-badge" class="px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-700 font-bold">0</span>
+      </button>
+    </nav>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: DASHBOARD & GRAFIK INTERAKTIF                                  -->
+    <!-- ===================================================================== -->
+    <section id="view-dashboard" class="tab-view animate-fade-in space-y-6">
+      
+      <!-- Banner Info Aktif -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-100" id="dash-badge-kelas">Kelas X (X.1)</span>
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-100" id="dash-badge-asesmen">Asesmen Awal</span>
+            <span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 font-bold text-xs border border-amber-100" id="dash-badge-kktp">KKTP: 75</span>
+          </div>
+          <h2 class="text-xl font-bold text-slate-800" id="dash-title">Ringkasan Hasil Asesmen - Informatika</h2>
+          <p class="text-sm text-slate-500 mt-0.5" id="dash-subtitle">Guru Pengampu: Budi Santoso, S.Kom., M.Pd. • Tahun Ajaran 2026/2027 (Ganjil)</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="switchTab('upload')" class="px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center gap-2 transition">
+            <i class="fa-solid fa-upload"></i> Upload Nilai Massal
+          </button>
+          <button onclick="exportToExcel()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition">
+            <i class="fa-solid fa-file-excel"></i> Unduh Excel
+          </button>
+          <button onclick="exportToPDF()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition">
+            <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rata-Rata Nilai</span>
+            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i class="fa-solid fa-calculator"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl font-extrabold text-slate-800" id="kpi-avg">0.0</span>
+            <span class="text-xs font-medium text-slate-500">/ 100</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-2" id="kpi-std">Simpangan Baku (SD): 0.00</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Ketuntasan Belajar</span>
+            <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl font-extrabold text-emerald-600" id="kpi-pass-pct">0%</span>
+            <span class="text-xs font-semibold text-slate-500" id="kpi-pass-count">(0/0 Siswa)</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
+            <div id="kpi-pass-bar" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Nilai Tertinggi & Terendah</span>
+            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i class="fa-solid fa-arrows-up-down"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-center gap-4">
+            <div>
+              <span class="text-xs text-slate-400 block">Tertinggi</span>
+              <span class="text-2xl font-extrabold text-indigo-600" id="kpi-max">0</span>
+            </div>
+            <div class="h-8 w-px bg-slate-200"></div>
+            <div>
+              <span class="text-xs text-slate-400 block">Terendah</span>
+              <span class="text-2xl font-extrabold text-rose-500" id="kpi-min">0</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2" id="kpi-range">Rentang Skor: 0 poin</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rekomendasi Tindak Lanjut</span>
+            <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <i class="fa-solid fa-user-graduate"></i>
+            </div>
+          </div>
+          <div class="mt-2.5 space-y-1 text-xs">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-500"></span>Pengayaan (≥86)</span>
+              <span class="font-bold text-indigo-700" id="kpi-pengayaan">0 siswa</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Tuntas / Reguler</span>
+              <span class="font-bold text-emerald-700" id="kpi-reguler">0 siswa</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Remedial (&lt;KKTP)</span>
+              <span class="font-bold text-rose-600" id="kpi-remedial">0 siswa</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Grafik Distribusi Ketuntasan & Predikat -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h3 class="font-bold text-slate-800 text-sm">Distribusi Capaian & Tindak Lanjut</h3>
+            <p class="text-xs text-slate-500">Proporsi siswa Pengayaan, Reguler, dan Remedial</p>
+          </div>
+          <div class="relative flex-1 min-h-[240px] flex items-center justify-center">
+            <canvas id="chart-distribution"></canvas>
+          </div>
+        </div>
+
+        <!-- Grafik Perbandingan Antar Jenis Asesmen -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm lg:col-span-2 flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-sm">Perbandingan Rata-Rata Seluruh Jenis Asesmen (<span id="chart-comp-kelas-label">Kelas X</span>)</h3>
+              <p class="text-xs text-slate-500">Perkembangan hasil belajar dari Asesmen Awal hingga Asesmen Akhir</p>
+            </div>
+            <span class="text-xs font-medium px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">Garis Putus: KKTP</span>
+          </div>
+          <div class="relative flex-1 min-h-[240px]">
+            <canvas id="chart-comparison"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 2: Grafik Sebaran Nilai Siswa & Perbandingan Antar Kelas -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm lg:col-span-2 flex flex-col">
+          <div class="mb-3">
+            <h3 class="font-bold text-slate-800 text-sm">Profil Nilai Individu Peserta Didik</h3>
+            <p class="text-xs text-slate-500">Visualisasi capaian nilai setiap siswa dibandingkan batas KKTP</p>
+          </div>
+          <div class="relative flex-1 min-h-[230px]">
+            <canvas id="chart-students"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h3 class="font-bold text-slate-800 text-sm">Komparasi Jenjang Kelas (X, XI, XII)</h3>
+            <p class="text-xs text-slate-500">Rata-rata pada jenis asesmen terpilih</p>
+          </div>
+          <div class="relative flex-1 min-h-[230px]">
+            <canvas id="chart-levels"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: IDENTITAS SEKOLAH, MAPEL, GURU & KEPALA SEKOLAH                -->
+    <!-- ===================================================================== -->
+    <section id="view-identitas" class="tab-view hidden animate-fade-in">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">Pengaturan Identitas Dokumen & Pengesahan Resmi</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Data ini akan otomatis muncul pada kop laporan, hasil ekspor Excel (.xlsx), dan dokumen PDF (.pdf).</p>
+          </div>
+          <button onclick="applyIdentitySettings()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-2 self-start">
+            <i class="fa-solid fa-floppy-disk"></i> Simpan & Terapkan Identitas
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <!-- Kolom Kiri: Data Satuan Pendidikan & Mata Pelajaran -->
+          <div class="space-y-4 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/60">
+            <h3 class="text-sm font-bold text-indigo-900 flex items-center gap-2">
+              <i class="fa-solid fa-school text-indigo-600"></i> Identitas Satuan Pendidikan & Asesmen
+            </h3>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Satuan Pendidikan / Sekolah</label>
+              <input type="text" id="input-school-name" value="SMAN 1 Pagar Dewa" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Alamat / Kabupaten-Kota Sekolah</label>
+              <input type="text" id="input-school-address" value="Jl. Pendidikan No. 1, Pagar Dewa, Lampung Barat" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Tahun Ajaran</label>
+                <select id="input-academic-year" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-indigo-500">
+                  <option value="2025/2026">2025/2026</option>
+                  <option value="2026/2027" selected>2026/2027</option>
+                  <option value="2027/2028">2027/2028</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Semester</label>
+                <select id="input-semester" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-indigo-500">
+                  <option value="Ganjil" selected>Ganjil (1)</option>
+                  <option value="Genap">Genap (2)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Mata Pelajaran</label>
+                <input type="text" id="input-subject" value="Informatika" placeholder="Contoh: Informatika, Matematika..." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">KKTP / KKM (0 - 100)</label>
+                <input type="number" id="input-kktp" value="75" min="1" max="100" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Tingkat Kelas Utama</label>
+                <select id="input-class-level" onchange="switchClassLevel(this.value)" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white font-semibold text-indigo-700">
+                  <option value="X">Kelas X (Fase E)</option>
+                  <option value="XI">Kelas XI (Fase F)</option>
+                  <option value="XII">Kelas XII (Fase F)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Rombongan Belajar (Rombel)</label>
+                <input type="text" id="input-rombel" value="X.1" placeholder="Misal: X.1, XI IPA 2, XII.3" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Materi Pokok / Lingkup Materi / Tujuan Pembelajaran (TP)</label>
+              <input type="text" id="input-topic" value="Berpikir Komputasional, Algoritma, dan Analisis Data" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white" />
+            </div>
+          </div>
+
+          <!-- Kolom Kanan: Guru Pengampu, Kepala Sekolah & Tempat Tanggal TTD -->
+          <div class="space-y-4 bg-emerald-50/40 p-5 rounded-2xl border border-emerald-200/60">
+            <h3 class="text-sm font-bold text-emerald-900 flex items-center gap-2">
+              <i class="fa-solid fa-signature text-emerald-600"></i> Identitas Penandatangan & Pengesahan
+            </h3>
+
+            <!-- Guru Pengampu -->
+            <div class="p-3.5 bg-white rounded-xl border border-slate-200 space-y-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 block">1. Guru Mata Pelajaran / Pengampu</span>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap & Gelar Guru Pengampu</label>
+                <input type="text" id="input-teacher-name" value="Budi Santoso, S.Kom., M.Pd." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">NIP / NUPTK Guru Pengampu</label>
+                <input type="text" id="input-teacher-nip" value="19880514 201503 1 004" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+            </div>
+
+            <!-- Kepala Sekolah -->
+            <div class="p-3.5 bg-white rounded-xl border border-slate-200 space-y-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 block">2. Mengetahui, Kepala Sekolah</span>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap & Gelar Kepala Sekolah</label>
+                <input type="text" id="input-principal-name" value="Drs. H. Ahmad Fauzi, M.M." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">NIP Kepala Sekolah</label>
+                <input type="text" id="input-principal-nip" value="19690821 199512 1 002" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+            </div>
+
+            <!-- Tempat & Tanggal Pengesahan -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Tempat Penetapan Laporan</label>
+                <input type="text" id="input-report-city" value="Pagar Dewa" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Laporan</label>
+                <input type="text" id="input-report-date" value="14 November 2026" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: UPLOAD MASSAL & MANAJEMEN DATA SISWA                           -->
+    <!-- ===================================================================== -->
+    <section id="view-upload" class="tab-view hidden animate-fade-in space-y-6">
+      
+      <!-- Area Upload Massal -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">Upload Massal Nilai Asesmen (.xlsx, .xls, .csv)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Pilih satu atau banyak file sekaligus. Sistem otomatis mengenali kolom <b>Kelas (X/XI/XII)</b>, <b>Jenis Asesmen</b>, <b>Nama Siswa</b>, <b>NISN</b>, dan <b>Nilai / Skor Per Butir Soal (S1..S10)</b>.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="downloadExcelTemplate()" class="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs flex items-center gap-2 transition">
+              <i class="fa-solid fa-download"></i> Download Template Excel (.xlsx)
+            </button>
+            <button onclick="resetToDemoData()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-2 transition">
+              <i class="fa-solid fa-rotate"></i> Muat Ulang Data Demo
+            </button>
+          </div>
+        </div>
+
+        <!-- Dropzone -->
+        <div id="dropzone" onclick="document.getElementById('bulk-file-input').click()" class="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/40 hover:bg-indigo-50/80 rounded-2xl p-8 text-center cursor-pointer transition group">
+          <input type="file" id="bulk-file-input" multiple accept=".xlsx,.xls,.csv" class="hidden" onchange="handleBulkFileUpload(event)" />
+          <div class="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+          </div>
+          <h3 class="text-sm font-bold text-slate-800">Klik di sini atau Seret & Lepas Banyak File Excel/CSV Sekaligus</h3>
+          <p class="text-xs text-slate-500 mt-1 max-w-xl mx-auto">
+            Mendukung unggahan massal gabungan Asesmen Awal, Harian, ATS, Sumatif, dan Akhir untuk Kelas X, XI, dan XII dalam satu waktu.
+          </p>
+          <div class="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-slate-500">
+            <span class="px-2.5 py-1 bg-white rounded-lg border border-slate-200">Format: .XLSX / .XLS / .CSV</span>
+            <span class="px-2.5 py-1 bg-white rounded-lg border border-slate-200">Multi-Sheet Otomatis</span>
+            <span class="px-2.5 py-1 bg-white rounded-lg border border-slate-200">Deteksi Skor Butir Soal S1-S10</span>
+          </div>
+        </div>
+
+        <!-- Log Hasil Upload Massal -->
+        <div id="upload-log-box" class="hidden mt-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+          <div class="font-bold flex items-center gap-2 mb-1">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <span>Ringkasan Impor Massal Berhasil:</span>
+          </div>
+          <ul id="upload-log-list" class="list-disc list-inside space-y-0.5 text-emerald-800"></ul>
+        </div>
+      </div>
+
+      <!-- Tabel Data Siswa Aktif (Bisa Edit / Tambah / Hapus) -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Data Nilai Peserta Didik — <span id="table-active-label" class="text-indigo-600">Kelas X • Asesmen Awal</span></h3>
+            <p class="text-xs text-slate-500">Anda dapat menambah, mengedit nilai siswa secara langsung, atau menghapus baris data.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="openAddStudentModal()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <i class="fa-solid fa-user-plus"></i> Tambah Siswa
+            </button>
+            <button onclick="clearCurrentDataset()" class="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-trash-can"></i> Kosongkan Daftar Ini
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                <th class="py-3 px-3 text-center w-10">No</th>
+                <th class="py-3 px-3">NISN</th>
+                <th class="py-3 px-3">Nama Peserta Didik</th>
+                <th class="py-3 px-3">Rombel</th>
+                <th class="py-3 px-3 text-center">Nilai Akhir</th>
+                <th class="py-3 px-3 text-center">Status KKTP</th>
+                <th class="py-3 px-3">Tindak Lanjut Kurikulum Merdeka</th>
+                <th class="py-3 px-3 text-center w-24">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="student-data-tbody" class="divide-y divide-slate-100">
+              <!-- Diisi via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 4: ANALISIS OTOMATIS & BUTIR SOAL / TP                            -->
+    <!-- ===================================================================== -->
+    <section id="view-analisis" class="tab-view hidden animate-fade-in space-y-6">
+      
+      <!-- Ringkasan Kelompok Tindak Lanjut -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Kelompok Pengayaan -->
+        <div class="bg-white rounded-2xl p-5 border-t-4 border-indigo-600 shadow-sm border-x border-b border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs">PENGAYAAN (Nilai ≥ 86)</span>
+            <span class="text-lg font-extrabold text-indigo-700" id="ana-count-pengayaan">0</span>
+          </div>
+          <p class="text-xs text-slate-600 mb-3">Peserta didik telah melampaui KKTP secara optimal. Diberikan proyek eksplorasi lanjutan atau tutor sebaya.</p>
+          <div id="ana-list-pengayaan" class="text-xs space-y-1 max-h-40 overflow-y-auto bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-700"></div>
+        </div>
+
+        <!-- Kelompok Reguler / Tuntas -->
+        <div class="bg-white rounded-2xl p-5 border-t-4 border-emerald-500 shadow-sm border-x border-b border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs">TUNTAS / REGULER (KKTP – 85)</span>
+            <span class="text-lg font-extrabold text-emerald-700" id="ana-count-reguler">0</span>
+          </div>
+          <p class="text-xs text-slate-600 mb-3">Peserta didik mencapai ketuntasan tujuan pembelajaran. Dapat melanjutkan ke materi/modul berikutnya.</p>
+          <div id="ana-list-reguler" class="text-xs space-y-1 max-h-40 overflow-y-auto bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-700"></div>
+        </div>
+
+        <!-- Kelompok Remedial -->
+        <div class="bg-white rounded-2xl p-5 border-t-4 border-rose-500 shadow-sm border-x border-b border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <span class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 font-bold text-xs">REMEDIAL (&lt; KKTP)</span>
+            <span class="text-lg font-extrabold text-rose-600" id="ana-count-remedial">0</span>
+          </div>
+          <p class="text-xs text-slate-600 mb-3">Memerlukan bimbingan khusus, pembelajaran ulang pada indikator belum tuntas, dan asesmen ulang.</p>
+          <div id="ana-list-remedial" class="text-xs space-y-1 max-h-40 overflow-y-auto bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-700"></div>
+        </div>
+      </div>
+
+      <!-- Analisis Ketercapaian Butir Soal & Tingkat Kesukaran -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Analisis Ketercapaian Butir Soal / Indikator Tujuan Pembelajaran (TP)</h3>
+            <p class="text-xs text-slate-500">Menghitung persentase ketercapaian tiap butir soal (Soal 1 s.d. Soal 10), Tingkat Kesukaran (Mudah/Sedang/Sukar), dan Rekomendasi Evaluasi Soal.</p>
+          </div>
+          <span class="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-xs">Otomatis dari Skor Butir Soal</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                <th class="py-3 px-3 text-center">No Soal</th>
+                <th class="py-3 px-3">Indikator / Lingkup Materi</th>
+                <th class="py-3 px-3 text-center">Rata-Rata Skor (0-10)</th>
+                <th class="py-3 px-3 text-center">Ketercapaian (%)</th>
+                <th class="py-3 px-3 text-center">Tingkat Kesukaran</th>
+                <th class="py-3 px-3">Keputusan / Tindak Lanjut Butir Soal</th>
+              </tr>
+            </thead>
+            <tbody id="item-analysis-tbody" class="divide-y divide-slate-100">
+              <!-- Diisi otomatis via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 5: LAPORAN RESMI & UNDUH EXCEL / PDF                              -->
+    <!-- ===================================================================== -->
+    <section id="view-laporan" class="tab-view hidden animate-fade-in space-y-5">
+      
+      <!-- Toolbar Ekspor -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-bold text-slate-800">Pratinjau Dokumen Laporan Resmi (Siap Cetak & Unduh)</h3>
+          <p class="text-xs text-slate-500">Dilengkapi kop sekolah, statistik, hasil analisis siswa, serta kolom tanda tangan Guru Pengampu & Kepala Sekolah.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="exportToExcel()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition">
+            <i class="fa-solid fa-file-excel"></i> Download Excel (.xlsx)
+          </button>
+          <button onclick="exportToPDF()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition">
+            <i class="fa-solid fa-file-pdf"></i> Download PDF (.pdf)
+          </button>
+          <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition">
+            <i class="fa-solid fa-print"></i> Cetak Langsung
+          </button>
+        </div>
+      </div>
+
+      <!-- Kertas A4 Preview Laporan -->
+      <div class="overflow-x-auto pb-6">
+        <div id="printable-report" class="a4-paper text-slate-900">
+          <!-- Kop Surat Resmi -->
+          <div class="border-b-4 border-double border-slate-900 pb-3 mb-4 text-center">
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-600">Pemerintah Provinsi • Dinas Pendidikan dan Kebudayaan</p>
+            <h1 id="rep-school-name" class="text-xl font-extrabold uppercase tracking-wide mt-0.5">SMAN 1 PAGAR DEWA</h1>
+            <p id="rep-school-address" class="text-xs text-slate-600">Jl. Pendidikan No. 1, Pagar Dewa, Lampung Barat</p>
+          </div>
+
+          <!-- Judul Laporan -->
+          <div class="text-center mb-5">
+            <h2 class="text-sm font-bold uppercase underline underline-offset-4">LAPORAN ANALISIS HASIL ASESMEN PESERTA DIDIK</h2>
+            <p id="rep-assessment-subtitle" class="text-xs font-semibold mt-1 uppercase">ASESMEN AWAL (DIAGNOSTIK) — KURIKULUM MERDEKA</p>
+          </div>
+
+          <!-- Tabel Identitas Dokumen -->
+          <table class="w-full text-xs mb-4">
+            <tbody>
+              <tr>
+                <td class="py-1 font-semibold w-40">Mata Pelajaran</td>
+                <td class="py-1 w-4">:</td>
+                <td class="py-1 font-bold" id="rep-subject">Informatika</td>
+                <td class="py-1 font-semibold w-36">Tahun Ajaran</td>
+                <td class="py-1 w-4">:</td>
+                <td class="py-1" id="rep-year">2026/2027</td>
+              </tr>
+              <tr>
+                <td class="py-1 font-semibold">Kelas / Rombel</td>
+                <td class="py-1">:</td>
+                <td class="py-1 font-bold" id="rep-class">Kelas X / X.1</td>
+                <td class="py-1 font-semibold">Semester</td>
+                <td class="py-1">:</td>
+                <td class="py-1" id="rep-semester">Ganjil</td>
+              </tr>
+              <tr>
+                <td class="py-1 font-semibold">Jenis Asesmen</td>
+                <td class="py-1">:</td>
+                <td class="py-1" id="rep-assessment">Asesmen Awal</td>
+                <td class="py-1 font-semibold">KKTP / KKM</td>
+                <td class="py-1">:</td>
+                <td class="py-1 font-bold" id="rep-kktp">75</td>
+              </tr>
+              <tr>
+                <td class="py-1 font-semibold align-top">Lingkup Materi / TP</td>
+                <td class="py-1 align-top">:</td>
+                <td class="py-1" colspan="4" id="rep-topic">Berpikir Komputasional, Algoritma, dan Analisis Data</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Ringkasan Statistik Kotak -->
+          <div class="mb-4">
+            <h3 class="text-xs font-bold uppercase mb-1.5 bg-slate-100 px-2 py-1 border-l-4 border-slate-800">A. Rekapitulasi Statistik Hasil Asesmen</h3>
+            <table class="w-full border-collapse border border-slate-400 text-xs text-center">
+              <thead>
+                <tr class="bg-slate-100 font-bold">
+                  <th class="border border-slate-400 py-1.5 px-2">Jumlah Peserta</th>
+                  <th class="border border-slate-400 py-1.5 px-2">Rata-Rata</th>
+                  <th class="border border-slate-400 py-1.5 px-2">Tertinggi</th>
+                  <th class="border border-slate-400 py-1.5 px-2">Terendah</th>
+                  <th class="border border-slate-400 py-1.5 px-2">Tuntas (≥ KKTP)</th>
+                  <th class="border border-slate-400 py-1.5 px-2">Belum Tuntas</th>
+                  <th class="border border-slate-400 py-1.5 px-2">% Ketuntasan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="font-semibold">
+                  <td class="border border-slate-400 py-1.5 px-2" id="rep-stat-total">0</td>
+                  <td class="border border-slate-400 py-1.5 px-2" id="rep-stat-avg">0.0</td>
+                  <td class="border border-slate-400 py-1.5 px-2" id="rep-stat-max">0</td>
+                  <td class="border border-slate-400 py-1.5 px-2" id="rep-stat-min">0</td>
+                  <td class="border border-slate-400 py-1.5 px-2" id="rep-stat-pass">0</td>
+                  <td class="border border-slate-400 py-1.5 px-2" id="rep-stat-fail">0</td>
+                  <td class="border border-slate-400 py-1.5 px-2 font-bold" id="rep-stat-pct">0%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Tabel Hasil & Tindak Lanjut Siswa -->
+          <div class="mb-6">
+            <h3 class="text-xs font-bold uppercase mb-1.5 bg-slate-100 px-2 py-1 border-l-4 border-slate-800">B. Daftar Nilai & Klasifikasi Tindak Lanjut Peserta Didik</h3>
+            <table class="w-full border-collapse border border-slate-400 text-[11px]">
+              <thead>
+                <tr class="bg-slate-100 font-bold text-center">
+                  <th class="border border-slate-400 py-1.5 px-2 w-8">No</th>
+                  <th class="border border-slate-400 py-1.5 px-2 w-24">NISN</th>
+                  <th class="border border-slate-400 py-1.5 px-2 text-left">Nama Peserta Didik</th>
+                  <th class="border border-slate-400 py-1.5 px-2 w-16">Rombel</th>
+                  <th class="border border-slate-400 py-1.5 px-2 w-14">Nilai</th>
+                  <th class="border border-slate-400 py-1.5 px-2 w-24">Ketuntasan</th>
+                  <th class="border border-slate-400 py-1.5 px-2">Tindak Lanjut</th>
+                </tr>
+              </thead>
+              <tbody id="rep-students-tbody">
+                <!-- Diisi via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Blok Tanda Tangan Resmi (Kepala Sekolah & Guru Pengampu) -->
+          <div class="grid grid-cols-2 gap-8 mt-8 pt-2 text-xs break-inside-avoid">
+            <!-- Kiri: Kepala Sekolah -->
+            <div class="text-left pl-2">
+              <p>Mengetahui,</p>
+              <p class="font-semibold">Kepala <span id="rep-sig-school">SMAN 1 Pagar Dewa</span></p>
+              <div class="h-20"></div>
+              <p class="font-bold underline underline-offset-2" id="rep-sig-principal">Drs. H. Ahmad Fauzi, M.M.</p>
+              <p>NIP. <span id="rep-sig-principal-nip">19690821 199512 1 002</span></p>
+            </div>
+
+            <!-- Kanan: Guru Pengampu -->
+            <div class="text-left pl-6">
+              <p><span id="rep-sig-city">Pagar Dewa</span>, <span id="rep-sig-date">14 November 2026</span></p>
+              <p class="font-semibold">Guru Mata Pelajaran <span id="rep-sig-subject">Informatika</span></p>
+              <div class="h-20"></div>
+              <p class="font-bold underline underline-offset-2" id="rep-sig-teacher">Budi Santoso, S.Kom., M.Pd.</p>
+              <p>NIP. <span id="rep-sig-teacher-nip">19880514 201503 1 004</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 6: ARSIP DIGITAL ASESMEN                                          -->
+    <!-- ===================================================================== -->
+    <section id="view-arsip" class="tab-view hidden animate-fade-in space-y-6">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">Arsip Digital Hasil Analisis Asesmen</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Simpan, kelola, muat ulang, atau unduh kembali arsip analisis berdasarkan jenjang kelas dan jenis asesmen.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <select id="archive-filter-kelas" onchange="renderArchiveList()" class="px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white">
+              <option value="ALL">Semua Kelas (X, XI, XII)</option>
+              <option value="X">Kelas X</option>
+              <option value="XI">Kelas XI</option>
+              <option value="XII">Kelas XII</option>
+            </select>
+            <select id="archive-filter-type" onchange="renderArchiveList()" class="px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white">
+              <option value="ALL">Semua Jenis Asesmen</option>
+              <option value="Asesmen Awal">Asesmen Awal</option>
+              <option value="Asesmen Harian">Asesmen Harian</option>
+              <option value="Asesmen Tengah Semester">Asesmen Tengah Semester</option>
+              <option value="Asesmen Sumatif">Asesmen Sumatif</option>
+              <option value="Asesmen Akhir">Asesmen Akhir</option>
+            </select>
+            <button onclick="saveToArchive()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-plus"></i> Arsipkan Analisis Saat Ini
+            </button>
+          </div>
+        </div>
+
+        <div id="archive-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Kartu Arsip dirender via JS -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <p>© 2026 <b>MPI Analisis Asesmen Interaktif SMA</b> — Kurikulum Merdeka.</p>
+      <p>Mendukung Ekspor Excel (.xlsx), Laporan PDF (.pdf) & Pengesahan Kepala Sekolah.</p>
+    </div>
+  </footer>
+
+  <!-- ======================================================================= -->
+  <!-- JAVASCRIPT LOGIC (DATA ENGINE, BULK UPLOAD, CHARTS, EXCEL, PDF, ARSIP)  -->
+  <!-- ======================================================================= -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. STATE & KONFIGURASI UTAMA APLIKASI
+    // -------------------------------------------------------------------------
+    const ASSESSMENT_TYPES = [
+      'Asesmen Awal',
+      'Asesmen Harian',
+      'Asesmen Tengah Semester',
+      'Asesmen Sumatif',
+      'Asesmen Akhir'
+    ];
+
+    const CLASS_LEVELS = ['X', 'XI', 'XII'];
+
+    const ITEM_INDICATORS = [
+      'Memahami konsep dasar & definisi materi',
+      'Mengidentifikasi komponen & struktur utama',
+      'Menerapkan algoritma / prosedur penyelesaian',
+      'Menganalisis studi kasus kontekstual',
+      'Mengevaluasi ketepatan solusi & efisiensi',
+      'Menafsirkan data dalam bentuk tabel/grafik',
+      'Menyusun langkah pemecahan masalah logis',
+      'Mengintegrasikan konsep lintas topik',
+      'Menarik kesimpulan berbasis bukti empiris',
+      'Merancang solusi kreatif berbasis proyek'
+    ];
+
+    let appState = {
+      activeTab: 'dashboard',
+      activeClass: 'X',
+      activeAssessment: 'Asesmen Awal',
+      identity: {
+        schoolName: 'SMAN 1 Pagar Dewa',
+        schoolAddress: 'Jl. Pendidikan No. 1, Pagar Dewa, Lampung Barat',
+        academicYear: '2026/2027',
+        semester: 'Ganjil',
+        subject: 'Informatika',
+        kktp: 75,
+        rombel: { X: 'X.1', XI: 'XI.1', XII: 'XII.1' },
+        topic: 'Berpikir Komputasional, Algoritma, dan Analisis Data',
+        teacherName: 'Budi Santoso, S.Kom., M.Pd.',
+        teacherNip: '19880514 201503 1 004',
+        principalName: 'Drs. H. Ahmad Fauzi, M.M.',
+        principalNip: '19690821 199512 1 002',
+        reportCity: 'Pagar Dewa',
+        reportDate: '14 November 2026'
+      },
+      // Struktur: datasets[kelas][jenisAsesmen] = Array of Student Objects
+      datasets: {
+        X: {},
+        XI: {},
+        XII: {}
+      },
+      archives: []
+    };
+
+    // Referensi instance Chart.js
+    let charts = {
+      distribution: null,
+      comparison: null,
+      students: null,
+      levels: null
+    };
+
+    // -------------------------------------------------------------------------
+    // 2. GENERATOR DATA DEMO SIAP PAKAI (KELAS X, XI, XII & 5 JENIS ASESMEN)
+    // -------------------------------------------------------------------------
+    const SAMPLE_NAMES = {
+      X: [
+        { nisn: '0091234501', name: 'Adinda Putri Maharani' },
+        { nisn: '0091234502', name: 'Bagas Pratama Wijaya' },
+        { nisn: '0091234503', name: 'Citra Kirana Dewi' },
+        { nisn: '0091234504', name: 'Dimas Arya Saputra' },
+        { nisn: '0091234505', name: 'Eka Nabila Sari' },
+        { nisn: '0091234506', name: 'Fajar Nugroho' },
+        { nisn: '0091234507', name: 'Gita Permata Hati' },
+        { nisn: '0091234508', name: 'Hendra Kusuma' },
+        { nisn: '0091234509', name: 'Intan Nuraini' },
+        { nisn: '0091234510', name: 'Joko Susilo' },
+        { nisn: '0091234511', name: 'Kartika Sari' },
+        { nisn: '0091234512', name: 'Lukman Hakim' }
+      ],
+      XI: [
+        { nisn: '0082234601', name: 'Muhammad Rizky Ramadhan' },
+        { nisn: '0082234602', name: 'Nadia Azzahra' },
+        { nisn: '0082234603', name: 'Oki Setiawan' },
+        { nisn: '0082234604', name: 'Putri Ayu Lestari' },
+        { nisn: '0082234605', name: 'Qoriatul Hasanah' },
+        { nisn: '0082234606', name: 'Rafi Akbar Maulana' },
+        { nisn: '0082234607', name: 'Salsabila Khairunnisa' },
+        { nisn: '0082234608', name: 'Taufik Hidayat' },
+        { nisn: '0082234609', name: 'Ulfa Dwiyanti' },
+        { nisn: '0082234610', name: 'Vina Panduwinata' },
+        { nisn: '0082234611', name: 'Wahyu Ramadhan' },
+        { nisn: '0082234612', name: 'Yulia Citra' }
+      ],
+      XII: [
+        { nisn: '0073234701', name: 'Ahmad Zaki Alfarizi' },
+        { nisn: '0073234702', name: 'Bella Shofie Ananda' },
+        { nisn: '0073234703', name: 'Candra Wijaya' },
+        { nisn: '0073234704', name: 'Dina Mariana' },
+        { nisn: '0073234705', name: 'Erlangga Putra' },
+        { nisn: '0073234706', name: 'Fitriani Rahmawati' },
+        { nisn: '0073234707', name: 'Galih Pratama' },
+        { nisn: '0073234708', name: 'Hana Pertiwi' },
+        { nisn: '0073234709', name: 'Irfan Hakim' },
+        { nisn: '0073234710', name: 'Jihan Fahira' },
+        { nisn: '0073234711', name: 'Kevin Sanjaya' },
+        { nisn: '0073234712', name: 'Larasati Ningrum' }
+      ]
+    };
+
+    function generateItemScoresFromTotal(targetScore, seed) {
+      // Membuat 10 skor butir soal (0-10) yang jumlahnya mendekati targetScore
+      let scores = [];
+      let remaining = Math.round(targetScore);
+      for (let i = 0; i < 10; i++) {
+        let itemsLeft = 10 - i;
+        let avgNeeded = remaining / itemsLeft;
+        let variation = ((seed * (i + 3)) % 3) - 1; // -1, 0, atau +1
+        let val = Math.max(2, Math.min(10, Math.round(avgNeeded + variation)));
+        if (i === 9) {
+          val = Math.max(0, Math.min(10, remaining));
+        }
+        scores.push(val);
+        remaining -= val;
+      }
+      return scores;
+    }
+
+    function buildDemoDatasets() {
+      const baseOffsets = {
+        'Asesmen Awal': -6,
+        'Asesmen Harian': 2,
+        'Asesmen Tengah Semester': 0,
+        'Asesmen Sumatif': 4,
+        'Asesmen Akhir': 6
+      };
+
+      const classOffsets = { X: 0, XI: 2, XII: 4 };
+      const basePattern = [92, 84, 78, 68, 88, 72, 95, 64, 81, 76, 89, 70];
+
+      CLASS_LEVELS.forEach(cls => {
+        ASSESSMENT_TYPES.forEach((type, tIdx) => {
+          appState.datasets[cls][type] = SAMPLE_NAMES[cls].map((st, idx) => {
+            let raw = basePattern[idx % basePattern.length] + baseOffsets[type] + classOffsets[cls] + ((idx + tIdx) % 3 - 1);
+            let finalScore = Math.max(45, Math.min(100, raw));
+            let items = generateItemScoresFromTotal(finalScore, idx + tIdx + 1);
+            // Sinkronkan nilai akhir dengan jumlah skor butir jika ada
+            let sumItems = items.reduce((a, b) => a + b, 0);
+            return {
+              id: `${cls}-${tIdx}-${idx}-${Date.now()}`,
+              nisn: st.nisn,
+              name: st.name,
+              rombel: `${cls}.1`,
+              score: sumItems,
+              items: items
+            };
+          });
+        });
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. INISIALISASI & LOCALSTORAGE
+    // -------------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      loadFromLocalStorage();
+      syncIdentityInputsFromState();
+      renderAllViews();
+      setupDragAndDrop();
+    });
+
+    function loadFromLocalStorage() {
+      try {
+        const savedData = localStorage.getItem('mpi_asesmen_state_v1');
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          if (parsed.identity) appState.identity = { ...appState.identity, ...parsed.identity };
+          if (parsed.datasets && parsed.datasets.X) appState.datasets = parsed.datasets;
+          else buildDemoDatasets();
+          if (Array.isArray(parsed.archives)) appState.archives = parsed.archives;
+        } else {
+          buildDemoDatasets();
+        }
+      } catch (e) {
+        console.error('Gagal memuat localStorage:', e);
+        buildDemoDatasets();
+      }
+    }
+
+    function saveStateToLocalStorage() {
+      try {
+        localStorage.setItem('mpi_asesmen_state_v1', JSON.stringify({
+          identity: appState.identity,
+          datasets: appState.datasets,
+          archives: appState.archives
+        }));
+      } catch (e) {
+        console.error('Gagal menyimpan ke localStorage:', e);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. NAVIGASI TAB, KELAS (X/XI/XII), & JENIS ASESMEN
+    // -------------------------------------------------------------------------
+    function switchTab(tabName) {
+      appState.activeTab = tabName;
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      const targetView = document.getElementById(`view-${tabName}`);
+      const targetBtn = document.getElementById(`tab-${tabName}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetBtn) targetBtn.classList.add('active');
+
+      if (tabName === 'dashboard') {
+        updateCharts();
+      } else if (tabName === 'laporan') {
+        renderReportPreview();
+      } else if (tabName === 'arsip') {
+        renderArchiveList();
+      }
+    }
+
+    function switchClassLevel(kelas) {
+      appState.activeClass = kelas;
+      document.querySelectorAll('.kelas-pill').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-slate-300');
+      });
+      const activePill = document.getElementById(`btn-kelas-${kelas}`);
+      if (activePill) {
+        activePill.classList.add('bg-indigo-600', 'text-white');
+        activePill.classList.remove('text-slate-300');
+      }
+
+      document.getElementById('input-class-level').value = kelas;
+      document.getElementById('input-rombel').value = appState.identity.rombel[kelas] || `${kelas}.1`;
+      renderAllViews();
+      showToast(`Beralih ke Kelas ${kelas}`, 'info');
+    }
+
+    function switchAssessmentType(type) {
+      appState.activeAssessment = type;
+      document.getElementById('global-assessment-select').value = type;
+      renderAllViews();
+    }
+
+    function syncIdentityInputsFromState() {
+      const id = appState.identity;
+      document.getElementById('input-school-name').value = id.schoolName;
+      document.getElementById('input-school-address').value = id.schoolAddress;
+      document.getElementById('input-academic-year').value = id.academicYear;
+      document.getElementById('input-semester').value = id.semester;
+      document.getElementById('input-subject').value = id.subject;
+      document.getElementById('input-kktp').value = id.kktp;
+      document.getElementById('input-class-level').value = appState.activeClass;
+      document.getElementById('input-rombel').value = id.rombel[appState.activeClass] || `${appState.activeClass}.1`;
+      document.getElementById('input-topic').value = id.topic;
+      document.getElementById('input-teacher-name').value = id.teacherName;
+      document.getElementById('input-teacher-nip').value = id.teacherNip;
+      document.getElementById('input-principal-name').value = id.principalName;
+      document.getElementById('input-principal-nip').value = id.principalNip;
+      document.getElementById('input-report-city').value = id.reportCity;
+      document.getElementById('input-report-date').value = id.reportDate;
+    }
+
+    function applyIdentitySettings() {
+      const cls = appState.activeClass;
+      appState.identity.schoolName = document.getElementById('input-school-name').value.trim() || 'SMAN 1 Pagar Dewa';
+      appState.identity.schoolAddress = document.getElementById('input-school-address').value.trim();
+      appState.identity.academicYear = document.getElementById('input-academic-year').value;
+      appState.identity.semester = document.getElementById('input-semester').value;
+      appState.identity.subject = document.getElementById('input-subject').value.trim() || 'Informatika';
+      appState.identity.kktp = Math.max(1, Math.min(100, Number(document.getElementById('input-kktp').value) || 75));
+      appState.identity.rombel[cls] = document.getElementById('input-rombel').value.trim() || `${cls}.1`;
+      appState.identity.topic = document.getElementById('input-topic').value.trim();
+      appState.identity.teacherName = document.getElementById('input-teacher-name').value.trim();
+      appState.identity.teacherNip = document.getElementById('input-teacher-nip').value.trim();
+      appState.identity.principalName = document.getElementById('input-principal-name').value.trim();
+      appState.identity.principalNip = document.getElementById('input-principal-nip').value.trim();
+      appState.identity.reportCity = document.getElementById('input-report-city').value.trim();
+      appState.identity.reportDate = document.getElementById('input-report-date').value.trim();
+
+      saveStateToLocalStorage();
+      renderAllViews();
+      showToast('Identitas Sekolah, Mapel & Pengesahan TTD berhasil diperbarui!', 'success');
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. KALKULASI STATISTIK & KLASIFIKASI KURIKULUM MERDEKA
+    // -------------------------------------------------------------------------
+    function getActiveStudents() {
+      return appState.datasets[appState.activeClass][appState.activeAssessment] || [];
+    }
+
+    function classifyStudent(score, kktp) {
+      if (score >= 86) {
+        return {
+          status: 'Tuntas',
+          category: 'Pengayaan',
+          badgeClass: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+          action: 'Pengayaan & Eksplorasi Lanjutan'
+        };
+      } else if (score >= kktp) {
+        return {
+          status: 'Tuntas',
+          category: 'Reguler',
+          badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+          action: 'Tuntas / Lanjut Materi Berikutnya'
+        };
+      } else {
+        return {
+          status: 'Belum Tuntas',
+          category: 'Remedial',
+          badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
+          action: 'Remedial & Bimbingan Khusus'
+        };
+      }
+    }
+
+    function calculateStatistics(students, kktp) {
+      const n = students.length;
+      if (n === 0) {
+        return {
+          count: 0, avg: 0, max: 0, min: 0, stdDev: 0,
+          passCount: 0, failCount: 0, passPct: 0,
+          pengayaan: [], reguler: [], remedial: []
+        };
+      }
+
+      const scores = students.map(s => Number(s.score) || 0);
+      const sum = scores.reduce((a, b) => a + b, 0);
+      const avg = sum / n;
+      const max = Math.max(...scores);
+      const min = Math.min(...scores);
+      const variance = scores.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / n;
+      const stdDev = Math.sqrt(variance);
+
+      const pengayaan = [];
+      const reguler = [];
+      const remedial = [];
+
+      students.forEach(s => {
+        const sc = Number(s.score) || 0;
+        if (sc >= 86) pengayaan.push(s);
+        else if (sc >= kktp) reguler.push(s);
+        else remedial.push(s);
+      });
+
+      const passCount = pengayaan.length + reguler.length;
+      const failCount = remedial.length;
+      const passPct = (passCount / n) * 100;
+
+      return {
+        count: n, avg, max, min, stdDev,
+        passCount, failCount, passPct,
+        pengayaan, reguler, remedial
+      };
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. RENDER SEMUA TAMPILAN (DASHBOARD, TABEL, ANALISIS, LAPORAN, ARSIP)
+    // -------------------------------------------------------------------------
+    function renderAllViews() {
+      const id = appState.identity;
+      const cls = appState.activeClass;
+      const type = appState.activeAssessment;
+      const rombel = id.rombel[cls] || `${cls}.1`;
+      const students = getActiveStudents();
+      const stats = calculateStatistics(students, id.kktp);
+
+      // Update Header & Badges
+      document.getElementById('header-school-subtitle').textContent = `${id.schoolName} • Sistem Evaluasi & Pelaporan Terpadu`;
+      document.getElementById('badge-active-subject').textContent = id.subject;
+      document.getElementById('archive-count-badge').textContent = appState.archives.length;
+
+      // Dashboard Header
+      document.getElementById('dash-badge-kelas').textContent = `Kelas ${cls} (${rombel})`;
+      document.getElementById('dash-badge-asesmen').textContent = type;
+      document.getElementById('dash-badge-kktp').textContent = `KKTP: ${id.kktp}`;
+      document.getElementById('dash-title').textContent = `Ringkasan Hasil ${type} — ${id.subject}`;
+      document.getElementById('dash-subtitle').textContent = `Guru Pengampu: ${id.teacherName} • Tahun Ajaran ${id.academicYear} (${id.semester})`;
+      document.getElementById('chart-comp-kelas-label').textContent = `Kelas ${cls}`;
+
+      // Dashboard KPIs
+      document.getElementById('kpi-avg').textContent = stats.avg.toFixed(1);
+      document.getElementById('kpi-std').textContent = `Simpangan Baku (SD): ${stats.stdDev.toFixed(2)}`;
+      document.getElementById('kpi-pass-pct').textContent = `${stats.passPct.toFixed(0)}%`;
+      document.getElementById('kpi-pass-count').textContent = `(${stats.passCount}/${stats.count} Siswa)`;
+      document.getElementById('kpi-pass-bar').style.width = `${stats.passPct}%`;
+      document.getElementById('kpi-max').textContent = stats.max;
+      document.getElementById('kpi-min').textContent = stats.min;
+      document.getElementById('kpi-range').textContent = `Rentang Skor: ${stats.max - stats.min} poin`;
+      document.getElementById('kpi-pengayaan').textContent = `${stats.pengayaan.length} siswa`;
+      document.getElementById('kpi-reguler').textContent = `${stats.reguler.length} siswa`;
+      document.getElementById('kpi-remedial').textContent = `${stats.remedial.length} siswa`;
+
+      // Render komponen detail
+      renderStudentTable(students, id.kktp, cls, type);
+      renderAnalysisTab(students, stats, id.kktp);
+      renderReportPreview();
+      renderArchiveList();
+      updateCharts();
+    }
+
+    function renderStudentTable(students, kktp, cls, type) {
+      document.getElementById('table-active-label').textContent = `Kelas ${cls} • ${type} (${students.length} Siswa)`;
+      const tbody = document.getElementById('student-data-tbody');
+
+      if (students.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="py-8 text-center text-slate-400">
+              <i class="fa-solid fa-folder-open text-2xl mb-2 block"></i>
+              Belum ada data siswa pada <b>Kelas ${cls} - ${type}</b>. Silakan unggah file Excel/CSV atau tambah siswa manual.
+            </td>
+          </tr>`;
+        return;
+      }
+
+      tbody.innerHTML = students.map((st, idx) => {
+        const info = classifyStudent(st.score, kktp);
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-2.5 px-3 text-center font-medium text-slate-500">${idx + 1}</td>
+            <td class="py-2.5 px-3 font-mono text-slate-600">${st.nisn || '-'}</td>
+            <td class="py-2.5 px-3 font-semibold text-slate-800">${st.name}</td>
+            <td class="py-2.5 px-3 text-slate-600">${st.rombel || cls + '.1'}</td>
+            <td class="py-2.5 px-3 text-center">
+              <input type="number" min="0" max="100" value="${st.score}"
+                onchange="updateStudentScoreInline(${idx}, this.value)"
+                class="w-16 text-center font-bold text-slate-800 bg-slate-100 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg py-1 px-1.5" />
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${st.score >= kktp ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
+                ${info.status}
+              </span>
+            </td>
+            <td class="py-2.5 px-3">
+              <span class="px-2.5 py-0.5 rounded-lg border text-[11px] font-semibold ${info.badgeClass}">
+                ${info.category}: ${info.action}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <button onclick="deleteStudent(${idx})" title="Hapus Siswa" class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateStudentScoreInline(index, newVal) {
+      const score = Math.max(0, Math.min(100, Number(newVal) || 0));
+      const students = getActiveStudents();
+      if (students[index]) {
+        students[index].score = score;
+        students[index].items = generateItemScoresFromTotal(score, index + 2);
+        saveStateToLocalStorage();
+        renderAllViews();
+        showToast(`Nilai ${students[index].name} diperbarui menjadi ${score}`, 'success');
+      }
+    }
+
+    function deleteStudent(index) {
+      const students = getActiveStudents();
+      const removed = students.splice(index, 1);
+      saveStateToLocalStorage();
+      renderAllViews();
+      if (removed.length) showToast(`Data ${removed[0].name} dihapus`, 'info');
+    }
+
+    function clearCurrentDataset() {
+      appState.datasets[appState.activeClass][appState.activeAssessment] = [];
+      saveStateToLocalStorage();
+      renderAllViews();
+      showToast(`Daftar nilai Kelas ${appState.activeClass} - ${appState.activeAssessment} dikosongkan`, 'info');
+    }
+
+    function resetToDemoData() {
+      buildDemoDatasets();
+      saveStateToLocalStorage();
+      renderAllViews();
+      showToast('Data simulasi demo Kelas X, XI, dan XII berhasil dimuat ulang!', 'success');
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. ANALISIS OTOMATIS & ANALISIS BUTIR SOAL / TP
+    // -------------------------------------------------------------------------
+    function renderAnalysisTab(students, stats, kktp) {
+      document.getElementById('ana-count-pengayaan').textContent = `${stats.pengayaan.length} Siswa`;
+      document.getElementById('ana-count-reguler').textContent = `${stats.reguler.length} Siswa`;
+      document.getElementById('ana-count-remedial').textContent = `${stats.remedial.length} Siswa`;
+
+      const renderNameList = (arr, emptyMsg) => {
+        if (arr.length === 0) return `<p class="text-slate-400 italic">${emptyMsg}</p>`;
+        return arr.map((s, i) => `<div class="flex justify-between py-0.5 border-b border-slate-100 last:border-0"><span>${i + 1}. ${s.name}</span><span class="font-bold">${s.score}</span></div>`).join('');
+      };
+
+      document.getElementById('ana-list-pengayaan').innerHTML = renderNameList(stats.pengayaan, 'Belum ada siswa pada kategori pengayaan.');
+      document.getElementById('ana-list-reguler').innerHTML = renderNameList(stats.reguler, 'Belum ada siswa pada kategori reguler.');
+      document.getElementById('ana-list-remedial').innerHTML = renderNameList(stats.remedial, 'Tidak ada siswa remedial (100% Tuntas!).');
+
+      // Tabel Analisis Butir Soal (10 Butir)
+      const itemTbody = document.getElementById('item-analysis-tbody');
+      if (students.length === 0) {
+        itemTbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">Belum ada data untuk analisis butir soal.</td></tr>`;
+        return;
+      }
+
+      let rowsHtml = '';
+      for (let i = 0; i < 10; i++) {
+        let totalItemScore = 0;
+        students.forEach(st => {
+          const itemArr = (st.items && st.items.length === 10) ? st.items : generateItemScoresFromTotal(st.score, i + 1);
+          totalItemScore += Number(itemArr[i]) || 0;
+        });
+        const avgItem = totalItemScore / students.length; // skala 0 - 10
+        const masteryPct = (avgItem / 10) * 100;
+
+        let difficulty = 'Sedang';
+        let diffClass = 'bg-amber-50 text-amber-700 border-amber-200';
+        let decision = 'Soal Baik — Pertahankan dalam Bank Soal';
+
+        if (masteryPct >= 80) {
+          difficulty = 'Mudah';
+          diffClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+          decision = 'Tercapai Optimal — Dapat ditingkatkan kompleksitas HOTS';
+        } else if (masteryPct < 65) {
+          difficulty = 'Sukar';
+          diffClass = 'bg-rose-50 text-rose-700 border-rose-200';
+          decision = 'Perlu Penguatan Konsep / Revisi Distraktor Soal';
+        }
+
+        rowsHtml += `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 text-center font-bold text-slate-700">Soal ${i + 1}</td>
+            <td class="py-2.5 px-3 text-slate-700">${ITEM_INDICATORS[i]}</td>
+            <td class="py-2.5 px-3 text-center font-semibold">${avgItem.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <div class="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-indigo-600 h-1.5 rounded-full" style="width: ${masteryPct}%"></div>
+                </div>
+                <span class="font-bold text-slate-700">${masteryPct.toFixed(0)}%</span>
+              </div>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="px-2.5 py-0.5 rounded-lg border text-[11px] font-semibold ${diffClass}">${difficulty}</span>
+            </td>
+            <td class="py-2.5 px-3 text-slate-600">${decision}</td>
+          </tr>
+        `;
+      }
+      itemTbody.innerHTML = rowsHtml;
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. VISUALISASI GRAFIK INTERAKTIF (CHART.JS)
+    // -------------------------------------------------------------------------
+    function updateCharts() {
+      const id = appState.identity;
+      const cls = appState.activeClass;
+      const type = appState.activeAssessment;
+      const students = getActiveStudents();
+      const stats = calculateStatistics(students, id.kktp);
+
+      // 1. Doughnut Chart: Distribusi Tindak Lanjut
+      const ctxDist = document.getElementById('chart-distribution');
+      if (ctxDist) {
+        if (charts.distribution) charts.distribution.destroy();
+        charts.distribution = new Chart(ctxDist, {
+          type: 'doughnut',
+          data: {
+            labels: ['Pengayaan (≥86)', 'Tuntas Reguler', 'Remedial (<KKTP)'],
+            datasets: [{
+              data: [stats.pengayaan.length, stats.reguler.length, stats.remedial.length],
+              backgroundColor: ['#4f46e5', '#10b981', '#f43f5e'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '64%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { boxWidth: 12, font: { size: 11, family: 'Inter' } }
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Bar Chart: Perbandingan Antar Jenis Asesmen pada Kelas Aktif
+      const ctxComp = document.getElementById('chart-comparison');
+      if (ctxComp) {
+        if (charts.comparison) charts.comparison.destroy();
+        const avgPerType = ASSESSMENT_TYPES.map(t => {
+          const list = appState.datasets[cls][t] || [];
+          if (!list.length) return 0;
+          return Number((list.reduce((a, b) => a + Number(b.score || 0), 0) / list.length).toFixed(1));
+        });
+
+        charts.comparison = new Chart(ctxComp, {
+          type: 'bar',
+          data: {
+            labels: ['Asesmen Awal', 'Asesmen Harian', 'ATS', 'Sumatif', 'Asesmen Akhir'],
+            datasets: [
+              {
+                label: `Rata-Rata Nilai Kelas ${cls}`,
+                data: avgPerType,
+                backgroundColor: ASSESSMENT_TYPES.map(t => t === type ? '#4f46e5' : '#93c5fd'),
+                borderRadius: 8,
+                maxBarThickness: 44
+              },
+              {
+                label: `Batas KKTP (${id.kktp})`,
+                data: ASSESSMENT_TYPES.map(() => id.kktp),
+                type: 'line',
+                borderColor: '#ef4444',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' } },
+              x: { grid: { display: false } }
+            },
+            plugins: {
+              legend: { labels: { font: { size: 11, family: 'Inter' } } }
+            }
+          }
+        });
+      }
+
+      // 3. Bar/Line Chart: Profil Nilai Individu Siswa
+      const ctxStudents = document.getElementById('chart-students');
+      if (ctxStudents) {
+        if (charts.students) charts.students.destroy();
+        charts.students = new Chart(ctxStudents, {
+          type: 'bar',
+          data: {
+            labels: students.map(s => s.name.split(' ')[0]),
+            datasets: [
+              {
+                label: 'Nilai Siswa',
+                data: students.map(s => s.score),
+                backgroundColor: students.map(s => s.score >= 86 ? '#4f46e5' : (s.score >= id.kktp ? '#10b981' : '#f43f5e')),
+                borderRadius: 6
+              },
+              {
+                label: `KKTP (${id.kktp})`,
+                data: students.map(() => id.kktp),
+                type: 'line',
+                borderColor: '#f59e0b',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' } },
+              x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            },
+            plugins: {
+              legend: { labels: { font: { size: 11, family: 'Inter' } } }
+            }
+          }
+        });
+      }
+
+      // 4. Bar Chart: Komparasi Jenjang Kelas X, XI, XII
+      const ctxLevels = document.getElementById('chart-levels');
+      if (ctxLevels) {
+        if (charts.levels) charts.levels.destroy();
+        const avgPerClass = CLASS_LEVELS.map(c => {
+          const list = appState.datasets[c][type] || [];
+          if (!list.length) return 0;
+          return Number((list.reduce((a, b) => a + Number(b.score || 0), 0) / list.length).toFixed(1));
+        });
+
+        charts.levels = new Chart(ctxLevels, {
+          type: 'bar',
+          data: {
+            labels: ['Kelas X', 'Kelas XI', 'Kelas XII'],
+            datasets: [{
+              label: `Rata-rata ${type}`,
+              data: avgPerClass,
+              backgroundColor: ['#6366f1', '#10b981', '#0ea5e9'],
+              borderRadius: 10,
+              maxBarThickness: 48
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' } },
+              x: { grid: { display: false } }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 9. UPLOAD MASSAL EXCEL/CSV & DOWNLOAD TEMPLATE EXCEL (.XLSX)
+    // -------------------------------------------------------------------------
+    function setupDragAndDrop() {
+      const dz = document.getElementById('dropzone');
+      if (!dz) return;
+      ['dragenter', 'dragover'].forEach(evt => {
+        dz.addEventListener(evt, e => {
+          e.preventDefault();
+          dz.classList.add('border-indigo-600', 'bg-indigo-100/70');
+        });
+      });
+      ['dragleave', 'drop'].forEach(evt => {
+        dz.addEventListener(evt, e => {
+          e.preventDefault();
+          dz.classList.remove('border-indigo-600', 'bg-indigo-100/70');
+        });
+      });
+      dz.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files && files.length) processBulkFiles(files);
+      });
+    }
+
+    function handleBulkFileUpload(event) {
+      const files = event.target.files;
+      if (files && files.length) processBulkFiles(files);
+      event.target.value = '';
+    }
+
+    function normalizeClassLevel(rawVal) {
+      const str = String(rawVal || '').toUpperCase().trim();
+      if (str.startsWith('XII') || str.includes('12')) return 'XII';
+      if (str.startsWith('XI') || str.includes('11')) return 'XI';
+      if (str.startsWith('X') || str.includes('10')) return 'X';
+      return appState.activeClass;
+    }
+
+    function normalizeAssessmentType(rawVal) {
+      const str = String(rawVal || '').toLowerCase().trim();
+      if (str.includes('awal') || str.includes('diagnostik')) return 'Asesmen Awal';
+      if (str.includes('harian') || str.includes('formatif')) return 'Asesmen Harian';
+      if (str.includes('tengah') || str.includes('ats') || str.includes('pts')) return 'Asesmen Tengah Semester';
+      if (str.includes('akhir') || str.includes('sas') || str.includes('sat') || str.includes('pas')) return 'Asesmen Akhir';
+      if (str.includes('sumatif')) return 'Asesmen Sumatif';
+      return appState.activeAssessment;
+    }
+
+    async function processBulkFiles(fileList) {
+      const logs = [];
+      let totalImported = 0;
+      const bucketsToReplace = new Set();
+
+      for (let f = 0; f < fileList.length; f++) {
+        const file = fileList[f];
+        try {
+          const data = await file.arrayBuffer();
+          const workbook = XLSX.read(data, { type: 'array' });
+          let fileRowCount = 0;
+
+          workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            rows.forEach((row, rIdx) => {
+              // Cari kolom secara fleksibel (case-insensitive)
+              const keys = Object.keys(row);
+              const findVal = (patterns) => {
+                const foundKey = keys.find(k => patterns.some(p => k.toLowerCase().includes(p)));
+                return foundKey ? row[foundKey] : '';
+              };
+
+              const name = String(findVal(['nama', 'name', 'siswa', 'peserta'])).trim();
+              if (!name) return; // Lewati baris kosong
+
+              const nisn = String(findVal(['nisn', 'nis', 'nomor induk']) || `00900${rIdx + 1}`).trim();
+              const rawKelas = findVal(['kelas', 'tingkat', 'jenjang']) || sheetName || appState.activeClass;
+              const cls = normalizeClassLevel(rawKelas);
+              const rombel = String(findVal(['rombel', 'subkelas']) || (String(rawKelas).includes('.') ? rawKelas : `${cls}.1`)).trim();
+              const rawType = findVal(['asesmen', 'jenis', 'ujian', 'evaluasi']) || sheetName || appState.activeAssessment;
+              const type = normalizeAssessmentType(rawType);
+
+              // Cek skor butir soal S1..S10 jika ada
+              let itemScores = [];
+              for (let i = 1; i <= 10; i++) {
+                const sVal = findVal([`s${i}`, `soal ${i}`, `soal_${i}`, `butir ${i}`]);
+                if (sVal !== '' && !isNaN(Number(sVal))) {
+                  itemScores.push(Math.max(0, Math.min(10, Number(sVal))));
+                }
+              }
+
+              let rawScore = findVal(['nilai', 'skor', 'score', 'hasil', 'akhir']);
+              let finalScore = 0;
+              if (rawScore !== '' && !isNaN(Number(rawScore))) {
+                finalScore = Math.max(0, Math.min(100, Number(rawScore)));
+              } else if (itemScores.length > 0) {
+                finalScore = itemScores.reduce((a, b) => a + b, 0);
+              }
+
+              if (itemScores.length !== 10) {
+                itemScores = generateItemScoresFromTotal(finalScore, rIdx + 1);
+              }
+
+              const bucketKey = `${cls}::${type}`;
+              if (!bucketsToReplace.has(bucketKey)) {
+                appState.datasets[cls][type] = [];
+                bucketsToReplace.add(bucketKey);
+              }
+
+              appState.datasets[cls][type].push({
+                id: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                nisn,
+                name,
+                rombel,
+                score: finalScore,
+                items: itemScores
+              });
+
+              fileRowCount++;
+              totalImported++;
+            });
+          });
+
+          logs.push(`File "${file.name}": ${fileRowCount} data siswa berhasil diproses & diklasifikasikan.`);
+        } catch (err) {
+          console.error(err);
+          logs.push(`File "${file.name}": Gagal dibaca (${err.message}).`);
+        }
+      }
+
+      if (totalImported > 0) {
+        saveStateToLocalStorage();
+        renderAllViews();
+        const logBox = document.getElementById('upload-log-box');
+        const logList = document.getElementById('upload-log-list');
+        logBox.classList.remove('hidden');
+        logList.innerHTML = logs.map(l => `<li>${l}</li>`).join('');
+        showToast(`Berhasil mengimpor ${totalImported} data siswa dari ${fileList.length} file!`, 'success');
+      } else {
+        showToast('Tidak ditemukan baris data siswa yang valid. Gunakan Template Excel yang disediakan.', 'error');
+      }
+    }
+
+    function downloadExcelTemplate() {
+      const wb = XLSX.utils.book_new();
+      const sampleRows = [
+        {
+          'NISN': '0091234501',
+          'Nama Siswa': 'Adinda Putri Maharani',
+          'Kelas': 'X',
+          'Rombel': 'X.1',
+          'Jenis Asesmen': 'Asesmen Awal',
+          'Nilai Akhir': 88,
+          'S1': 9, 'S2': 9, 'S3': 8, 'S4': 9, 'S5': 9, 'S6': 9, 'S7': 8, 'S8': 9, 'S9': 9, 'S10': 9
+        },
+        {
+          'NISN': '0091234502',
+          'Nama Siswa': 'Bagas Pratama Wijaya',
+          'Kelas': 'X',
+          'Rombel': 'X.1',
+          'Jenis Asesmen': 'Asesmen Harian',
+          'Nilai Akhir': 76,
+          'S1': 8, 'S2': 8, 'S3': 7, 'S4': 8, 'S5': 7, 'S6': 8, 'S7': 7, 'S8': 8, 'S9': 7, 'S10': 8
+        },
+        {
+          'NISN': '0082234601',
+          'Nama Siswa': 'Muhammad Rizky Ramadhan',
+          'Kelas': 'XI',
+          'Rombel': 'XI.1',
+          'Jenis Asesmen': 'Asesmen Tengah Semester',
+          'Nilai Akhir': 84,
+          'S1': 8, 'S2': 9, 'S3': 8, 'S4': 8, 'S5': 9, 'S6': 8, 'S7': 8, 'S8': 9, 'S9': 8, 'S10': 9
+        },
+        {
+          'NISN': '0073234701',
+          'Nama Siswa': 'Ahmad Zaki Alfarizi',
+          'Kelas': 'XII',
+          'Rombel': 'XII.1',
+          'Jenis Asesmen': 'Asesmen Akhir',
+          'Nilai Akhir': 91,
+          'S1': 9, 'S2': 9, 'S3': 9, 'S4': 9, 'S5': 10, 'S6': 9, 'S7': 9, 'S8': 9, 'S9': 9, 'S10': 9
+        }
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(sampleRows);
+      ws['!cols'] = [
+        { wch: 14 }, { wch: 28 }, { wch: 8 }, { wch: 10 }, { wch: 24 }, { wch: 13 },
+        { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 5 },
+        { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 5 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Template_Upload_Massal');
+      XLSX.writeFile(wb, 'Template_Upload_Massal_Asesmen_SMA.xlsx');
+      showToast('Template Excel (.xlsx) berhasil diunduh!', 'success');
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. PRATINJAU LAPORAN RESMI & EKSPOR EXCEL (.XLSX) + PDF (.PDF)
+    // -------------------------------------------------------------------------
+    function renderReportPreview() {
+      const id = appState.identity;
+      const cls = appState.activeClass;
+      const type = appState.activeAssessment;
+      const rombel = id.rombel[cls] || `${cls}.1`;
+      const students = getActiveStudents();
+      const stats = calculateStatistics(students, id.kktp);
+
+      document.getElementById('rep-school-name').textContent = id.schoolName;
+      document.getElementById('rep-school-address').textContent = id.schoolAddress;
+      document.getElementById('rep-assessment-subtitle').textContent = `LAPORAN ${type.toUpperCase()} — KURIKULUM MERDEKA`;
+
+      document.getElementById('rep-subject').textContent = id.subject;
+      document.getElementById('rep-year').textContent = id.academicYear;
+      document.getElementById('rep-class').textContent = `Kelas ${cls} / ${rombel}`;
+      document.getElementById('rep-semester').textContent = id.semester;
+      document.getElementById('rep-assessment').textContent = type;
+      document.getElementById('rep-kktp').textContent = id.kktp;
+      document.getElementById('rep-topic').textContent = id.topic;
+
+      document.getElementById('rep-stat-total').textContent = `${stats.count} Siswa`;
+      document.getElementById('rep-stat-avg').textContent = stats.avg.toFixed(2);
+      document.getElementById('rep-stat-max').textContent = stats.max;
+      document.getElementById('rep-stat-min').textContent = stats.min;
+      document.getElementById('rep-stat-pass').textContent = `${stats.passCount} Siswa`;
+      document.getElementById('rep-stat-fail').textContent = `${stats.failCount} Siswa`;
+      document.getElementById('rep-stat-pct').textContent = `${stats.passPct.toFixed(1)}%`;
+
+      const tbody = document.getElementById('rep-students-tbody');
+      if (students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="border border-slate-400 py-4 text-center text-slate-500">Tidak ada data peserta didik.</td></tr>`;
+      } else {
+        tbody.innerHTML = students.map((st, i) => {
+          const info = classifyStudent(st.score, id.kktp);
+          return `
+            <tr>
+              <td class="border border-slate-400 py-1 px-2 text-center">${i + 1}</td>
+              <td class="border border-slate-400 py-1 px-2 text-center">${st.nisn || '-'}</td>
+              <td class="border border-slate-400 py-1 px-2">${st.name}</td>
+              <td class="border border-slate-400 py-1 px-2 text-center">${st.rombel || rombel}</td>
+              <td class="border border-slate-400 py-1 px-2 text-center font-bold">${st.score}</td>
+              <td class="border border-slate-400 py-1 px-2 text-center">${info.status}</td>
+              <td class="border border-slate-400 py-1 px-2">${info.category} (${info.action})</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Blok Tanda Tangan Kepala Sekolah & Guru Pengampu
+      document.getElementById('rep-sig-school').textContent = id.schoolName;
+      document.getElementById('rep-sig-principal').textContent = id.principalName;
+      document.getElementById('rep-sig-principal-nip').textContent = id.principalNip;
+      document.getElementById('rep-sig-city').textContent = id.reportCity;
+      document.getElementById('rep-sig-date').textContent = id.reportDate;
+      document.getElementById('rep-sig-subject').textContent = id.subject;
+      document.getElementById('rep-sig-teacher').textContent = id.teacherName;
+      document.getElementById('rep-sig-teacher-nip').textContent = id.teacherNip;
+    }
+
+    function exportToExcel() {
+      const id = appState.identity;
+      const cls = appState.activeClass;
+      const type = appState.activeAssessment;
+      const rombel = id.rombel[cls] || `${cls}.1`;
+      const students = getActiveStudents();
+      const stats = calculateStatistics(students, id.kktp);
+
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Laporan Lengkap & Tanda Tangan
+      const aoa = [
+        [id.schoolName.toUpperCase()],
+        [id.schoolAddress],
+        [`LAPORAN ANALISIS HASIL ${type.toUpperCase()} - KURIKULUM MERDEKA`],
+        [],
+        ['Mata Pelajaran', `: ${id.subject}`, '', 'Tahun Ajaran', `: ${id.academicYear}`],
+        ['Kelas / Rombel', `: Kelas ${cls} (${rombel})`, '', 'Semester', `: ${id.semester}`],
+        ['Jenis Asesmen', `: ${type}`, '', 'KKTP / KKM', `: ${id.kktp}`],
+        ['Lingkup Materi', `: ${id.topic}`],
+        [],
+        ['REKAPITULASI STATISTIK'],
+        ['Jumlah Peserta', 'Rata-Rata', 'Nilai Tertinggi', 'Nilai Terendah', 'Tuntas (>=KKTP)', 'Belum Tuntas', '% Ketuntasan'],
+        [stats.count, Number(stats.avg.toFixed(2)), stats.max, stats.min, stats.passCount, stats.failCount, `${stats.passPct.toFixed(1)}%`],
+        [],
+        ['DAFTAR HASIL & TINDAK LANJUT PESERTA DIDIK'],
+        ['No', 'NISN', 'Nama Peserta Didik', 'Rombel', 'Nilai Akhir', 'Status Ketuntasan', 'Kategori & Tindak Lanjut']
+      ];
+
+      students.forEach((st, idx) => {
+        const info = classifyStudent(st.score, id.kktp);
+        aoa.push([
+          idx + 1,
+          st.nisn || '-',
+          st.name,
+          st.rombel || rombel,
+          st.score,
+          info.status,
+          `${info.category} - ${info.action}`
+        ]);
+      });
+
+      // Tambahkan Blok Pengesahan Tanda Tangan di bagian bawah Excel
+      aoa.push([]);
+      aoa.push([]);
+      aoa.push(['', 'Mengetahui,', '', '', `${id.reportCity}, ${id.reportDate}`]);
+      aoa.push(['', `Kepala ${id.schoolName}`, '', '', `Guru Mata Pelajaran ${id.subject}`]);
+      aoa.push([]);
+      aoa.push([]);
+      aoa.push([]);
+      aoa.push(['', id.principalName, '', '', id.teacherName]);
+      aoa.push(['', `NIP. ${id.principalNip}`, '', '', `NIP. ${id.teacherNip}`]);
+
+      const wsMain = XLSX.utils.aoa_to_sheet(aoa);
+      wsMain['!cols'] = [
+        { wch: 6 }, { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 34 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsMain, 'Analisis_Hasil_Asesmen');
+
+      // Sheet 2: Analisis Butir Soal
+      const itemAoa = [
+        ['ANALISIS KETERCAPAIAN BUTIR SOAL / INDIKATOR TP'],
+        ['No Soal', 'Indikator Tujuan Pembelajaran', 'Rata-Rata Skor (0-10)', 'Ketercapaian (%)', 'Tingkat Kesukaran']
+      ];
+      for (let i = 0; i < 10; i++) {
+        let total = 0;
+        students.forEach(st => {
+          const arr = (st.items && st.items.length === 10) ? st.items : generateItemScoresFromTotal(st.score, i + 1);
+          total += Number(arr[i]) || 0;
+        });
+        const avg = students.length ? (total / students.length) : 0;
+        const pct = (avg / 10) * 100;
+        const diff = pct >= 80 ? 'Mudah' : (pct < 65 ? 'Sukar' : 'Sedang');
+        itemAoa.push([`Soal ${i + 1}`, ITEM_INDICATORS[i], Number(avg.toFixed(2)), `${pct.toFixed(0)}%`, diff]);
+      }
+      const wsItems = XLSX.utils.aoa_to_sheet(itemAoa);
+      wsItems['!cols'] = [{ wch: 10 }, { wch: 45 }, { wch: 22 }, { wch: 18 }, { wch: 18 }];
+      XLSX.utils.book_append_sheet(wb, wsItems, 'Analisis_Butir_Soal');
+
+      const safeSubject = id.subject.replace(/[^a-zA-Z0-9]/g, '_');
+      const safeType = type.replace(/[^a-zA-Z0-9]/g, '_');
+      XLSX.writeFile(wb, `Analisis_${safeType}_Kelas_${cls}_${safeSubject}.xlsx`);
+      showToast('Laporan Excel (.xlsx) dengan kolom TTD Guru & Kepala Sekolah berhasil diunduh!', 'success');
+    }
+
+    function exportToPDF() {
+      renderReportPreview();
+      const element = document.getElementById('printable-report');
+      const id = appState.identity;
+      const cls = appState.activeClass;
+      const type = appState.activeAssessment;
+      const safeSubject = id.subject.replace(/[^a-zA-Z0-9]/g, '_');
+      const safeType = type.replace(/[^a-zA-Z0-9]/g, '_');
+
+      showToast('Menyiapkan dokumen PDF A4...', 'info');
+
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Laporan_${safeType}_Kelas_${cls}_${safeSubject}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        showToast('Laporan PDF (.pdf) berhasil diunduh!', 'success');
+      }).catch(err => {
+        console.error(err);
+        showToast('Gagal membuat PDF. Anda dapat menggunakan tombol Cetak Langsung -> Simpan sebagai PDF.', 'error');
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. ARSIP DIGITAL ASESMEN (LOCALSTORAGE)
+    // -------------------------------------------------------------------------
+    function saveToArchive() {
+      const id = JSON.parse(JSON.stringify(appState.identity));
+      const cls = appState.activeClass;
+      const type = appState.activeAssessment;
+      const students = JSON.parse(JSON.stringify(getActiveStudents()));
+      const stats = calculateStatistics(students, id.kktp);
+
+      const archiveEntry = {
+        id: `arc-${Date.now()}`,
+        savedAt: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
+        classLevel: cls,
+        rombel: id.rombel[cls] || `${cls}.1`,
+        assessmentType: type,
+        subject: id.subject,
+        kktp: id.kktp,
+        avg: stats.avg.toFixed(1),
+        passPct: stats.passPct.toFixed(0),
+        studentCount: students.length,
+        identity: id,
+        students: students
+      };
+
+      appState.archives.unshift(archiveEntry);
+      saveStateToLocalStorage();
+      document.getElementById('archive-count-badge').textContent = appState.archives.length;
+      renderArchiveList();
+      showToast(`Analisis ${type} Kelas ${cls} (${id.subject}) disimpan ke Arsip!`, 'success');
+    }
+
+    function renderArchiveList() {
+      const container = document.getElementById('archive-list-container');
+      const filterKelas = document.getElementById('archive-filter-kelas').value;
+      const filterType = document.getElementById('archive-filter-type').value;
+
+      const filtered = appState.archives.filter(item => {
+        const matchKelas = filterKelas === 'ALL' || item.classLevel === filterKelas;
+        const matchType = filterType === 'ALL' || item.assessmentType === filterType;
+        return matchKelas && matchType;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+            <i class="fa-solid fa-box-open text-3xl text-slate-400 mb-2"></i>
+            <p class="text-sm font-semibold text-slate-600">Belum ada arsip analisis yang sesuai filter.</p>
+            <p class="text-xs text-slate-400 mt-1">Klik tombol <b>"Simpan ke Arsip"</b> di bagian atas untuk menyimpan hasil analisis aktif.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(arc => `
+        <div class="bg-slate-50/70 hover:bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="px-2.5 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 font-bold text-xs">Kelas ${arc.classLevel} (${arc.rombel})</span>
+              <span class="text-[11px] text-slate-400">${arc.savedAt}</span>
+            </div>
+            <h4 class="font-bold text-slate-800 text-sm">${arc.assessmentType}</h4>
+            <p class="text-xs font-medium text-emerald-700 mt-0.5">${arc.subject} • ${arc.studentCount} Siswa</p>
+            
+            <div class="grid grid-cols-3 gap-2 my-3 p-2.5 bg-white rounded-xl border border-slate-200/80 text-center text-xs">
+              <div>
+                <span class="text-[10px] text-slate-400 block">Rata-Rata</span>
+                <span class="font-extrabold text-slate-800">${arc.avg}</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-400 block">Ketuntasan</span>
+                <span class="font-extrabold text-emerald-600">${arc.passPct}%</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-400 block">KKTP</span>
+                <span class="font-extrabold text-indigo-600">${arc.kktp}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 pt-2 border-t border-slate-200/60">
+            <button onclick="loadArchiveItem('${arc.id}')" class="flex-1 py-1.5 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+              <i class="fa-solid fa-folder-open mr-1"></i> Muat Data
+            </button>
+            <button onclick="downloadArchiveExcel('${arc.id}')" title="Unduh Excel" class="py-1.5 px-2.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition">
+              <i class="fa-solid fa-file-excel"></i>
+            </button>
+            <button onclick="deleteArchiveItem('${arc.id}')" title="Hapus Arsip" class="py-1.5 px-2.5 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function loadArchiveItem(archiveId) {
+      const found = appState.archives.find(a => a.id === archiveId);
+      if (!found) return;
+
+      appState.identity = JSON.parse(JSON.stringify(found.identity));
+      appState.activeClass = found.classLevel;
+      appState.activeAssessment = found.assessmentType;
+      appState.datasets[found.classLevel][found.assessmentType] = JSON.parse(JSON.stringify(found.students));
+
+      syncIdentityInputsFromState();
+      switchClassLevel(found.classLevel);
+      switchAssessmentType(found.assessmentType);
+      saveStateToLocalStorage();
+      switchTab('dashboard');
+      showToast(`Arsip "${found.assessmentType} - Kelas ${found.classLevel}" berhasil dimuat!`, 'success');
+    }
+
+    function downloadArchiveExcel(archiveId) {
+      loadArchiveItem(archiveId);
+      exportToExcel();
+    }
+
+    function deleteArchiveItem(archiveId) {
+      appState.archives = appState.archives.filter(a => a.id !== archiveId);
+      saveStateToLocalStorage();
+      document.getElementById('archive-count-badge').textContent = appState.archives.length;
+      renderArchiveList();
+      showToast('Item arsip telah dihapus.', 'info');
+    }
+
+    // -------------------------------------------------------------------------
+    // 12. MODAL TAMBAH SISWA & PANDUAN INTERAKTIF MPI + TOAST NOTIFICATION
+    // -------------------------------------------------------------------------
+    function openAddStudentModal() {
+      const cls = appState.activeClass;
+      const rombel = appState.identity.rombel[cls] || `${cls}.1`;
+      const modal = document.getElementById('modal-content');
+      modal.innerHTML = `
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <h3 class="text-base font-bold text-slate-800">Tambah Peserta Didik (Kelas ${cls})</h3>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-3 mt-4 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">NISN</label>
+            <input type="text" id="new-st-nisn" placeholder="Contoh: 0091234599" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nama Lengkap Peserta Didik</label>
+            <input type="text" id="new-st-name" placeholder="Masukkan nama lengkap siswa" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Rombel</label>
+              <input type="text" id="new-st-rombel" value="${rombel}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nilai Akhir (0 - 100)</label>
+              <input type="number" id="new-st-score" value="80" min="0" max="100" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold" />
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-100">
+          <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">Batal</button>
+          <button onclick="confirmAddStudent()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold">Simpan Siswa</button>
+        </div>
+      `;
+      openModal();
+    }
+
+    function confirmAddStudent() {
+      const nisn = document.getElementById('new-st-nisn').value.trim() || `009${Math.floor(1000000 + Math.random() * 9000000)}`;
+      const name = document.getElementById('new-st-name').value.trim();
+      const rombel = document.getElementById('new-st-rombel').value.trim() || `${appState.activeClass}.1`;
+      const score = Math.max(0, Math.min(100, Number(document.getElementById('new-st-score').value) || 0));
+
+      if (!name) {
+        showToast('Nama siswa wajib diisi!', 'error');
+        return;
+      }
+
+      const students = getActiveStudents();
+      students.push({
+        id: `st-${Date.now()}`,
+        nisn,
+        name,
+        rombel,
+        score,
+        items: generateItemScoresFromTotal(score, students.length + 1)
+      });
+
+      saveStateToLocalStorage();
+      renderAllViews();
+      closeModal();
+      showToast(`Siswa "${name}" berhasil ditambahkan!`, 'success');
+    }
+
+    function openGuideModal() {
+      const modal = document.getElementById('modal-content');
+      modal.innerHTML = `
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-graduation-cap"></i></span>
+            <h3 class="text-base font-bold text-slate-800">Panduan Singkat MPI Analisis Asesmen</h3>
+          </div>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-3 mt-4 text-xs text-slate-600 leading-relaxed">
+          <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100">
+            <p class="font-bold text-indigo-900 mb-1">1. Pilih Jenjang Kelas & Jenis Asesmen</p>
+            <p>Gunakan bilah navigasi atas untuk berpindah cepat antara <b>Kelas X, XI, dan XII</b> serta 5 jenis asesmen (<b>Asesmen Awal, Harian, ATS, Sumatif, dan Akhir</b>).</p>
+          </div>
+          <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100">
+            <p class="font-bold text-emerald-900 mb-1">2. Upload Massal Sekaligus</p>
+            <p>Buka tab <b>Upload Massal & Data Siswa</b>. Anda bisa mengunggah banyak file Excel/CSV sekaligus dan sistem akan otomatis memilahnya ke kelas dan asesmen yang sesuai.</p>
+          </div>
+          <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-100">
+            <p class="font-bold text-amber-900 mb-1">3. Lengkapi Identitas & Kolom Tanda Tangan</p>
+            <p>Atur nama Mata Pelajaran, Guru Pengampu + NIP, serta Kepala Sekolah + NIP pada tab <b>Identitas & Tanda Tangan</b>.</p>
+          </div>
+          <div class="p-3 rounded-xl bg-rose-50/70 border border-rose-100">
+            <p class="font-bold text-rose-900 mb-1">4. Unduh Excel (.xlsx), PDF (.pdf) & Arsipkan</p>
+            <p>Buka tab <b>Laporan, Excel & PDF</b> untuk mengunduh laporan resmi siap cetak lengkap dengan pengesahan tanda tangan.</p>
+          </div>
+        </div>
+        <div class="flex justify-end mt-5 pt-3 border-t border-slate-100">
+          <button onclick="closeModal()" class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">Mengerti & Mulai</button>
+        </div>
+      `;
+      openModal();
+    }
+
+    function openModal() {
+      const overlay = document.getElementById('modal-overlay');
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+    }
+
+    function closeModal() {
+      const overlay = document.getElementById('modal-overlay');
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+      const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-exclamation',
+        info: 'fa-circle-info'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `${colors[type] || colors.info} px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2.5 animate-fade-in pointer-events-auto`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-sm"></i><span>${message}</span>`;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
